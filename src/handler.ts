@@ -1,10 +1,22 @@
-import * as secp from "./lib/noble-secp256k1";
+import {recoverAddress} from '@ethersproject/transactions'
 
 declare const PRIVATE_STORE: any;
+declare const global: any;
 function setData(key: string, data: string) {
+  if (typeof PRIVATE_STORE === "undefined") {
+    global.PRIVATE_STORE_DATA = {};
+    global.PRIVATE_STORE = {
+      put(key: string, value: string) {
+        global.PRIVATE_STORE_DATA[key] = value;
+      },
+      get(key: string): string {
+        return global.PRIVATE_STORE_DATA[key];
+      }
+    }
+  }
   return PRIVATE_STORE.put(key, data);
 }
-function getData(key: string) {
+function getData(key: string): string {
   return PRIVATE_STORE.get(key);
 }
 
@@ -32,9 +44,15 @@ export async function handleTestRequest(request: Request): Promise<Response> {
   1c'
   */
 
-  const isSigned = secp.verify(signature, messageHash, publicKey);
 
-  return new Response(JSON.stringify({isSigned, signature, publicKey}));
+ const address = recoverAddress("0x" + messageHash, '0x2a8d35a6725f54cec6d5e948fc9b26d19857d293af7ede2d38f2aa7671e1256463d20f972923bc6b3748f19ccd73d49e21fe41a8dc6fb5c93f62480f19b561e41c');
+ console.log({address});
+
+ return new Response(JSON.stringify({address, signature, publicKey}));
+
+  // const isSigned = secp.verify(signature, messageHash, publicKey);
+
+  // return new Response(JSON.stringify({isSigned, signature, publicKey}));
 }
 
 type JSONRequest = {method: string; params: any[]; id:number;};
@@ -76,15 +94,27 @@ function checkValidity(jsonRequest: JSONRequest, numParams: number): Response | 
   if (db !== 'planet-wars') {
     return new Response(`db ${db} not supported`, {status: 400});
   }
-  const publicKey = jsonRequest.params[1];
-  if (typeof publicKey !== 'string') {
-    return new Response(`invalid public key: not a string`, {status: 400});
+  const address = jsonRequest.params[1];
+  if (typeof address !== 'string') {
+    return new Response(`invalid address: not a string`, {status: 400});
   }
-  if (!publicKey.startsWith('0x')) {
-    return new Response(`invalid public key: not 0x prefix`, {status: 400});
+  if (!address.startsWith('0x')) {
+    return new Response(`invalid address: not 0x prefix`, {status: 400});
   }
-  if (publicKey.length !== 132) {
-    return new Response('invalid public key length', {status: 400});
+  if (address.length !== 42) {
+    return new Response('invalid address length', {status: 400});
+  }
+  if (jsonRequest.params.length >= 3) {
+    const signature = jsonRequest.params[2];
+    if (typeof signature !== 'string') {
+      return new Response(`invalid signature: not a string`, {status: 400});
+    }
+    if (!signature.startsWith('0x')) {
+      return new Response(`invalid signature: not 0x prefix`, {status: 400});
+    }
+    if (signature.length !== 132) {
+      return new Response('invalid signature length', {status: 400});
+    }
   }
 }
 
@@ -102,12 +132,13 @@ async function handleGetString(jsonRequest: JSONRequest) {
   if (invalidResponse) {
     return invalidResponse;
   }
-  const publicKey = jsonRequest.params[1];
+  const address = jsonRequest.params[1];
 
   let data;
   try {
-    data = await getData(publicKey);
+    data = await getData(address.toLowerCase());
   } catch (e) {
+    console.error(e);
     return new Response(wrapRequest(jsonRequest, null, e));
   }
   return new Response(wrapRequest(jsonRequest, data));
@@ -138,6 +169,8 @@ async function handleGetString(jsonRequest: JSONRequest) {
 //   return buf;
 // }
 
+const db = 'planet-wars';
+
 function toHex(ab: ArrayBuffer) : string {
   const hashArray = Array.from(new Uint8Array(ab));
   const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join(''); // convert bytes to hex string
@@ -149,29 +182,59 @@ async function handlePutString(jsonRequest: JSONRequest) {
   if (invalidResponse) {
     return invalidResponse;
   }
-  const id = jsonRequest.params[1];
-  const publicKey = id.slice(2);// TODO check 0x before for meaningful error message
-  const signature = {r: BigInt("0x" + jsonRequest.params[2].slice(2,66)), s: BigInt("0x" + jsonRequest.params[2].slice(66,66+64))}; // TODO check 0x before for meaningful error message
+  const address = jsonRequest.params[1];
+  const signature = jsonRequest.params[2];
   const dataAsString = jsonRequest.params[3];
 
-  const encoder = new TextEncoder();
-  const data = encoder.encode(dataAsString);
-  const messageHash = await crypto.subtle.digest("SHA-256", data);
+  let messageHash;
+  try {
+    messageHash = await hash256("db:" + db + ":" + dataAsString);
+  } catch(e) {
+    console.error(e);
+    return new Response("could not hash message", {status: 400})
+  }
+  
+  console.log("WORKER", {messageHash, signature, address});
 
-  console.log({messageHash: toHex(messageHash), signature, publicKey});
+  const authorized = await isAuthorized(address, messageHash, signature);
 
-  const isSigned = secp.verify(signature as any, new Uint8Array(messageHash), publicKey);
-
-  if (!isSigned) {
+  if (!authorized) {
     return new Response(wrapRequest(jsonRequest, null, 'invalid signature'));
   }
 
   try {
-    await setData(id, dataAsString);
+    await setData(address.toLowerCase(), dataAsString);
   } catch (e) {
+    console.error(e);
     return new Response(wrapRequest(jsonRequest, null, e));
   }
 
   return new Response(wrapRequest(jsonRequest, true));
 }
 
+async function hash256(dataAsString: string) {
+  if (typeof crypto !== "undefined" && crypto.subtle) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(dataAsString);
+    return "0x" + toHex(await crypto.subtle.digest("SHA-256", data));
+  } else {
+    const nodeCrypto = await import("crypto");
+    const hash = nodeCrypto.createHash('sha256');
+    hash.update(dataAsString);
+    return "0x" + hash.digest().toString("hex");
+  }
+}
+
+// async function isAuthorized(address: string, msgHash: string, signature: string): Promise<boolean> {
+//  return secp.verify(signature as any, new Uint8Array(messageHash), publicKey);
+// }
+
+async function isAuthorized(address: string, msgHash: string, signature: string): Promise<boolean> {
+  let addressFromSignature
+  try {
+    addressFromSignature = recoverAddress(msgHash, signature);
+  } catch(e) {
+    return false;
+  }
+  return address.toLowerCase() == addressFromSignature.toLowerCase();
+}
