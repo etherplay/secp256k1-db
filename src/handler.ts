@@ -1,5 +1,6 @@
 import {recoverAddress} from '@ethersproject/transactions';
 
+
 declare const PRIVATE_STORE: any;
 declare const global: any;
 if (typeof PRIVATE_STORE === "undefined") {
@@ -13,6 +14,14 @@ if (typeof PRIVATE_STORE === "undefined") {
     }
   }
 }
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET,HEAD,POST,OPTIONS",
+  "Access-Control-Max-Age": "86400",
+}
+
+
 function setData(key: string, data: string, counter: BigInt) {
   const dataToStore = JSON.stringify({data, counter: counter.toString()}); 
   return PRIVATE_STORE.put(key, dataToStore);
@@ -45,7 +54,7 @@ export async function handleRPC(request: Request): Promise<Response> {
       case 'wallet_putString':
         return handlePutString(jsonRequest);
       default:
-        return new Response(wrapRequest(jsonRequest, null, `"${method}" not supported`, "all"));
+        return wrapResponse(jsonRequest, null, `"${method}" not supported`, "all");
     }
   } else {
     return new Response('please use jsonrpc POST request');
@@ -145,11 +154,11 @@ async function handleGetString(jsonRequest: JSONRequest) {
     request = parseReadRequest(jsonRequest, 2);
   } catch(e) {
     console.error(e);
-    return new Response(wrapRequest(jsonRequest, null, e, "wallet_getString"));
+    return wrapResponse(jsonRequest, null, e, "wallet_getString");
   }
 
   if (request.namespace !== namespace) {
-    return new Response(wrapRequest(jsonRequest, null, `namespace "${request.namespace}" not supported`));
+    return wrapResponse(jsonRequest, null, `namespace "${request.namespace}" not supported`);
   }
   
   let data;
@@ -157,9 +166,18 @@ async function handleGetString(jsonRequest: JSONRequest) {
     data = await getData(request.address.toLowerCase());
   } catch (e) {
     console.error(e);
-    return new Response(wrapRequest(jsonRequest, null, e));
+    return wrapResponse(jsonRequest, null, e);
   }
-  return new Response(wrapRequest(jsonRequest, data));
+  return wrapResponse(jsonRequest, data);
+}
+
+function wrapResponse(jsonRequest: JSONRequest, data: any, error?: any, usage?: Usage): Response {
+  return new Response(wrapRequest(jsonRequest, data, error, usage), {
+    headers: {
+      "content-type": "application/json;charset=UTF-8",
+      ...corsHeaders 
+    }
+  });
 }
 
 function toHex(ab: ArrayBuffer) : string {
@@ -173,11 +191,11 @@ async function handlePutString(jsonRequest: JSONRequest) {
   try {
     request = parseWriteRequest(jsonRequest);
   } catch(e) {
-    return new Response(wrapRequest(jsonRequest, null, e, "wallet_putString"));
+    return wrapResponse(jsonRequest, null, e, "wallet_putString");
   }
 
   if (request.namespace !== namespace) {
-    return new Response(wrapRequest(jsonRequest, null, `namespace "${request.namespace}" not supported`));
+    return wrapResponse(jsonRequest, null, `namespace "${request.namespace}" not supported`);
   }
   
   let messageHash;
@@ -185,13 +203,13 @@ async function handlePutString(jsonRequest: JSONRequest) {
     messageHash = await hash256("put:" + request.namespace + ":" + request.counter + ":" + request.data);
   } catch(e) {
     console.error(e);
-    return new Response(wrapRequest(jsonRequest, null, e));
+    return wrapResponse(jsonRequest, null, e);
   }
 
   const authorized = await isAuthorized(request.address, messageHash, request.signature);
 
   if (!authorized) {
-    return new Response(wrapRequest(jsonRequest, null, 'invalid signature'));
+    return wrapResponse(jsonRequest, null, 'invalid signature');
   }
 
   
@@ -199,19 +217,19 @@ async function handlePutString(jsonRequest: JSONRequest) {
   try {
     currentData = await getData(request.address.toLowerCase());
     if (currentData && request.counter <= BigInt(currentData.counter)) {
-      return new Response(wrapRequest(jsonRequest, {success: false, currentData}, `cannot override with older/same counter`));  
+      return wrapResponse(jsonRequest, {success: false, currentData}, `cannot override with older/same counter`);  
     }
     const now = Date.now();
     if (request.counter > BigInt(now)) {
-      return new Response(wrapRequest(jsonRequest, null, `cannot use counter > timestamp in ms`));  
+      return wrapResponse(jsonRequest, null, `cannot use counter > timestamp in ms`);  
     }
     await setData(request.address.toLowerCase(), request.data, request.counter);
   } catch (e) {
     console.error(e);
-    return new Response(wrapRequest(jsonRequest, null, e));
+    return wrapResponse(jsonRequest, null, e);
   }
 
-  return new Response(wrapRequest(jsonRequest, {success: true, currentData}));
+  return wrapResponse(jsonRequest, {success: true, currentData});
 }
 
 async function hash256(dataAsString: string) {
