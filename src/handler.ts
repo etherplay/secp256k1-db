@@ -28,10 +28,13 @@ async function setData(key: string, data: string, counter: BigInt): Promise<{dat
   await PRIVATE_STORE.put(key, dataToStore);
   return obj;
 }
-async function getData(key: string): Promise<{data: string; counter: string;} | null> {
+async function getData(key: string): Promise<{data: string; counter: string;}> {
   const str = await PRIVATE_STORE.get(key);
   if (!str) {
-    return null;
+    return {
+      data: "",
+      counter: "0"
+    };
   }
   return JSON.parse(str);
 }
@@ -218,7 +221,7 @@ async function handlePutString(jsonRequest: JSONRequest) {
   let currentData;
   try {
     currentData = await getData(request.address.toLowerCase());
-    if (currentData && request.counter <= BigInt(currentData.counter)) {
+    if (request.counter <= BigInt(currentData.counter)) {
       return wrapResponse(jsonRequest, {success: false, currentData}, `cannot override with older/same counter`);  
     }
     const now = Date.now();
