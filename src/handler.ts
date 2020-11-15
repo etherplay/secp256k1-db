@@ -1,4 +1,4 @@
-import {recoverAddress} from '@ethersproject/transactions'
+import {recoverAddress} from '@ethersproject/transactions';
 
 declare const PRIVATE_STORE: any;
 declare const global: any;
@@ -13,11 +13,11 @@ if (typeof PRIVATE_STORE === "undefined") {
     }
   }
 }
-function setData(key: string, data: string, timestamp: BigInt) {
-  const dataToStore = JSON.stringify({data, timestamp: timestamp.toString()}); 
+function setData(key: string, data: string, counter: BigInt) {
+  const dataToStore = JSON.stringify({data, counter: counter.toString()}); 
   return PRIVATE_STORE.put(key, dataToStore);
 }
-async function getData(key: string): Promise<{data: string; timestamp: string;} | null> {
+async function getData(key: string): Promise<{data: string; counter: string;} | null> {
   const str = await PRIVATE_STORE.get(key);
   if (!str) {
     return null;
@@ -62,7 +62,7 @@ type ParsedReadRequest = ParsedRequest;
 type ParsedWriteRequest = ParsedRequest & {
   signature: string;
   data: string;
-  timestamp: BigInt;
+  counter: BigInt;
 }
 
 function parseReadRequest(jsonRequest: JSONRequest, numParams?: number): ParsedReadRequest {
@@ -96,11 +96,11 @@ function parseWriteRequest(jsonRequest: JSONRequest): ParsedWriteRequest {
   }
   const {namespace, address} = parseReadRequest(jsonRequest);
 
-  const timestampMs = jsonRequest.params[2];
-  if (typeof timestampMs !== 'string') {
-    throw new Error(`invalid timestampMs: not a string`);
+  const counterMs = jsonRequest.params[2];
+  if (typeof counterMs !== 'string') {
+    throw new Error(`invalid counter: not a string`);
   }
-  const timestamp = BigInt(timestampMs);
+  const counter = BigInt(counterMs);
 
   const data = jsonRequest.params[3];
   if (typeof data !== 'string') {
@@ -117,7 +117,7 @@ function parseWriteRequest(jsonRequest: JSONRequest): ParsedWriteRequest {
   if (signature.length !== 132) {
     throw new Error('invalid signature length');
   }
-  return {namespace, address, signature, data, timestamp}
+  return {namespace, address, signature, data, counter}
 }
 
 type Usage = "wallet_putString" | "wallet_getString" | "all";
@@ -128,7 +128,7 @@ function wrapRequest(jsonRequest: JSONRequest, data: any, error?: any, usage?: U
       error = `${error}\n{"method":"wallet_getString", "params":["<address>","<namespace>"]`;  
     }
     if (usage === "wallet_putString" || usage === "all") {
-      error = `${error}\n{"method":"wallet_putString", "params":["<address>","<namespace>","<timestampMs>","<data>","<signature>"]}`;
+      error = `${error}\n{"method":"wallet_putString", "params":["<address>","<namespace>","<counter>","<data>","<signature>"]}`;
     }
   }
   return JSON.stringify({
@@ -159,7 +159,7 @@ async function handleGetString(jsonRequest: JSONRequest) {
     console.error(e);
     return new Response(wrapRequest(jsonRequest, null, e));
   }
-  return new Response(wrapRequest(jsonRequest, data? data.data: null));
+  return new Response(wrapRequest(jsonRequest, data));
 }
 
 function toHex(ab: ArrayBuffer) : string {
@@ -182,7 +182,7 @@ async function handlePutString(jsonRequest: JSONRequest) {
   
   let messageHash;
   try {
-    messageHash = await hash256("put:" + request.namespace + ":" + request.timestamp + ":" + request.data);
+    messageHash = await hash256("put:" + request.namespace + ":" + request.counter + ":" + request.data);
   } catch(e) {
     console.error(e);
     return new Response(wrapRequest(jsonRequest, null, e));
@@ -195,22 +195,23 @@ async function handlePutString(jsonRequest: JSONRequest) {
   }
 
   
+  let currentData;
   try {
-    const currentData = await getData(request.address.toLowerCase());
-    if (currentData && request.timestamp <= BigInt(currentData.timestamp)) {
-      return new Response(wrapRequest(jsonRequest, null, `cannot override with older/same timestamp`));  
+    currentData = await getData(request.address.toLowerCase());
+    if (currentData && request.counter <= BigInt(currentData.counter)) {
+      return new Response(wrapRequest(jsonRequest, {success: false, currentData}, `cannot override with older/same counter`));  
     }
     const now = Date.now();
-    if (request.timestamp > BigInt(now)) {
-      return new Response(wrapRequest(jsonRequest, null, `cannot use future timestamp`));  
+    if (request.counter > BigInt(now)) {
+      return new Response(wrapRequest(jsonRequest, null, `cannot use counter > timestamp in ms`));  
     }
-    await setData(request.address.toLowerCase(), request.data, request.timestamp);
+    await setData(request.address.toLowerCase(), request.data, request.counter);
   } catch (e) {
     console.error(e);
     return new Response(wrapRequest(jsonRequest, null, e));
   }
 
-  return new Response(wrapRequest(jsonRequest, true));
+  return new Response(wrapRequest(jsonRequest, {success: true, currentData}));
 }
 
 async function hash256(dataAsString: string) {
