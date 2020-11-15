@@ -4,24 +4,24 @@
 // Curve fomula is y^2 = x^3 + ax + b
 const CURVE = {
   // Params: a, b
-  a: 0n,
-  b: 7n,
+  a: BigInt(0),
+  b: BigInt(7),
   // Field over which we'll do calculations
-  P: 2n ** 256n - 2n ** 32n - 977n,
+  P: BigInt(2) ** BigInt(256) - BigInt(2) ** BigInt(32) - BigInt(977),
   // Subgroup order aka prime_order
-  n: 2n ** 256n - 432420386565659656852420866394968145599n,
+  n: BigInt(2) ** BigInt(256) - BigInt("432420386565659656852420866394968145599"),
   // Cofactor
-  h: 1n,
+  h: BigInt(1),
   // Base point (x, y) aka generator point
-  Gx: 55066263022277343669578718895168534326250603453777594175500187360389116729240n,
-  Gy: 32670510020758816978083085130507043184471273380659243275938904335757337482424n,
+  Gx: BigInt("55066263022277343669578718895168534326250603453777594175500187360389116729240"),
+  Gy: BigInt("32670510020758816978083085130507043184471273380659243275938904335757337482424"),
 
   // For endomorphism, see below.
-  beta: 0x7ae96a2b657c07106e64479eac3434e99cf0497512f58995c1396c28719501een,
+  beta: BigInt("0x7ae96a2b657c07106e64479eac3434e99cf0497512f58995c1396c28719501ee"),
 };
 
 const PRIME_SIZE = 256;
-const P_DIV4_1 = (CURVE.P + 1n) / 4n;
+const P_DIV4_1 = (CURVE.P + BigInt(1)) / BigInt(4);
 
 // Cleaner js output if that's on a separate line.
 export { CURVE };
@@ -31,7 +31,7 @@ export { CURVE };
 // Returns sqrY
 function weistrass(x: bigint) {
   const { a, b } = CURVE;
-  return mod(x ** 3n + a * x + b);
+  return mod(x ** BigInt(3) + a * x + b);
 }
 
 type Hex = Uint8Array | string;
@@ -45,7 +45,7 @@ type Signature = Hex | SignResult;
 // Should always be used for Jacobian's double-and-add multiplication.
 // For affines cached multiplication, it trades off 1/2 init time & 1/3 ram for 20% perf hit.
 // https://gist.github.com/paulmillr/eb670806793e84df628a7c434a873066
-const USE_ENDOMORPHISM = CURVE.a === 0n;
+const USE_ENDOMORPHISM = CURVE.a === BigInt(0);
 
 // Default Point works in 2d / affine coordinates: (x, y)
 // Jacobian Point works in 3d / jacobi coordinates: (x, y, z) ∋ (x=x/z^2, y=y/z^3)
@@ -53,13 +53,13 @@ const USE_ENDOMORPHISM = CURVE.a === 0n;
 class JacobianPoint {
   constructor(public x: bigint, public y: bigint, public z: bigint) {}
 
-  static BASE = new JacobianPoint(CURVE.Gx, CURVE.Gy, 1n);
-  static ZERO = new JacobianPoint(0n, 1n, 0n);
+  static BASE = new JacobianPoint(CURVE.Gx, CURVE.Gy, BigInt(1));
+  static ZERO = new JacobianPoint(BigInt(0), BigInt(1), BigInt(0));
   static fromAffine(p: Point): JacobianPoint {
     if (!(p instanceof Point)) {
       throw new TypeError('JacobianPoint#fromAffine: expected Point');
     }
-    return new JacobianPoint(p.x, p.y, 1n);
+    return new JacobianPoint(p.x, p.y, BigInt(1));
   }
 
   // Takes a bunch of Jacobian Points but executes only one
@@ -98,15 +98,15 @@ class JacobianPoint {
     const X1 = this.x;
     const Y1 = this.y;
     const Z1 = this.z;
-    const A = X1 ** 2n;
-    const B = Y1 ** 2n;
-    const C = B ** 2n;
-    const D = 2n * ((X1 + B) ** 2n - A - C);
-    const E = 3n * A;
-    const F = E ** 2n;
-    const X3 = mod(F - 2n * D);
-    const Y3 = mod(E * (D - X3) - 8n * C);
-    const Z3 = mod(2n * Y1 * Z1);
+    const A = X1 ** BigInt(2);
+    const B = Y1 ** BigInt(2);
+    const C = B ** BigInt(2);
+    const D = BigInt(2) * ((X1 + B) ** BigInt(2) - A - C);
+    const E = BigInt(3) * A;
+    const F = E ** BigInt(2);
+    const X3 = mod(F - BigInt(2) * D);
+    const Y3 = mod(E * (D - X3) - BigInt(8) * C);
+    const Z3 = mod(BigInt(2) * Y1 * Z1);
     return new JacobianPoint(X3, Y3, Z3);
   }
 
@@ -125,10 +125,10 @@ class JacobianPoint {
     const X2 = other.x;
     const Y2 = other.y;
     const Z2 = other.z;
-    if (X2 === 0n || Y2 === 0n) return this;
-    if (X1 === 0n || Y1 === 0n) return other;
-    const Z1Z1 = Z1 ** 2n;
-    const Z2Z2 = Z2 ** 2n;
+    if (X2 === BigInt(0) || Y2 === BigInt(0)) return this;
+    if (X1 === BigInt(0) || Y1 === BigInt(0)) return other;
+    const Z1Z1 = Z1 ** BigInt(2);
+    const Z2Z2 = Z2 ** BigInt(2);
     const U1 = X1 * Z2Z2;
     const U2 = X2 * Z1Z1;
     const S1 = Y1 * Z2 * Z2Z2;
@@ -136,17 +136,17 @@ class JacobianPoint {
     const H = mod(U2 - U1);
     const r = mod(S2 - S1);
     // H = 0 meaning it's the same point.
-    if (H === 0n) {
-      if (r === 0n) {
+    if (H === BigInt(0)) {
+      if (r === BigInt(0)) {
         return this.double();
       } else {
         return JacobianPoint.ZERO;
       }
     }
-    const HH = mod(H ** 2n);
+    const HH = mod(H ** BigInt(2));
     const HHH = mod(H * HH);
     const V = U1 * HH;
-    const X3 = mod(r ** 2n - HHH - 2n * V);
+    const X3 = mod(r ** BigInt(2) - HHH - BigInt(2) * V);
     const Y3 = mod(r * (V - X3) - S1 * HHH);
     const Z3 = mod(Z1 * Z2 * H);
     return new JacobianPoint(X3, Y3, Z3);
@@ -166,10 +166,10 @@ class JacobianPoint {
     if (!USE_ENDOMORPHISM) {
       let p = JacobianPoint.ZERO;
       let d: JacobianPoint = this;
-      while (n > 0n) {
-        if (n & 1n) p = p.add(d);
+      while (n > BigInt(0)) {
+        if (n & BigInt(1)) p = p.add(d);
         d = d.double();
-        n >>= 1n;
+        n >>= BigInt(1);
       }
       return p;
     }
@@ -177,12 +177,12 @@ class JacobianPoint {
     let k1p = JacobianPoint.ZERO;
     let k2p = JacobianPoint.ZERO;
     let d: JacobianPoint = this;
-    while (k1 > 0n || k2 > 0n) {
-      if (k1 & 1n) k1p = k1p.add(d);
-      if (k2 & 1n) k2p = k2p.add(d);
+    while (k1 > BigInt(0) || k2 > BigInt(0)) {
+      if (k1 & BigInt(1)) k1p = k1p.add(d);
+      if (k2 & BigInt(1)) k2p = k2p.add(d);
       d = d.double();
-      k1 >>= 1n;
-      k2 >>= 1n;
+      k1 >>= BigInt(1);
+      k2 >>= BigInt(1);
     }
     if (k1neg) k1p = k1p.negate();
     if (k2neg) k2p = k2p.negate();
@@ -244,7 +244,7 @@ class JacobianPoint {
       // +224 => 256 - 32
       if (wbits > windowSize) {
         wbits -= maxNumber;
-        n += 1n;
+        n += BigInt(1);
       }
 
       // Check if we're onto Zero point.
@@ -292,7 +292,7 @@ class JacobianPoint {
   // Converts Jacobian point to default (x, y) coordinates.
   // Can accept precomputed Z^-1 - for example, from invertBatch.
   toAffine(invZ: bigint = invert(this.z)): Point {
-    const invZ2 = invZ ** 2n;
+    const invZ2 = invZ ** BigInt(2);
     const x = mod(this.x * invZ2);
     const y = mod(this.y * invZ2 * invZ);
     return new Point(x, y);
@@ -309,7 +309,7 @@ export class Point {
   static BASE: Point = new Point(CURVE.Gx, CURVE.Gy);
   // Identity point aka point at infinity
   // point = point + zero_point
-  static ZERO: Point = new Point(0n, 0n);
+  static ZERO: Point = new Point(BigInt(0), BigInt(0));
   // We calculate precomputes for elliptic curve point multiplication
   // using windowed method. This specifies window size and
   // stores precomputed values. Usually only base point would be precomputed.
@@ -331,7 +331,7 @@ export class Point {
     const sqrY = weistrass(x);
     let y = powMod(sqrY, P_DIV4_1, CURVE.P);
     const isFirstByteOdd = (bytes[0] & 1) === 1;
-    const isYOdd = (y & 1n) === 1n;
+    const isYOdd = (y & BigInt(1)) === BigInt(1);
     if (isFirstByteOdd !== isYOdd) {
       y = mod(-y);
     }
@@ -373,7 +373,7 @@ export class Point {
   static fromSignature(msgHash: Hex, signature: Signature, recovery: number): Point | undefined {
     const sign = normalizeSignature(signature);
     const { r, s } = sign;
-    if (r === 0n || s === 0n) return;
+    if (r === BigInt(0) || s === BigInt(0)) return;
     const rinv = invert(r, CURVE.n);
     const h = typeof msgHash === 'string' ? hexToNumber(msgHash) : bytesToNumber(msgHash);
     const P_ = Point.fromHex(`0${2 + (recovery & 1)}${pad64(r)}`);
@@ -392,7 +392,7 @@ export class Point {
   toHex(isCompressed = false) {
     const x = pad64(this.x);
     if (isCompressed) {
-      return `${this.y & 1n ? '03' : '02'}${x}`;
+      return `${this.y & BigInt(1) ? '03' : '02'}${x}`;
     } else {
       return `04${x}${pad64(this.y)}`;
     }
@@ -401,12 +401,12 @@ export class Point {
   // A point on curve is valid if it conforms to equation.
   assertValidity(): void {
     const { x, y } = this;
-    if (x === 0n || y === 0n || x >= CURVE.P || y >= CURVE.P) {
+    if (x === BigInt(0) || y === BigInt(0) || x >= CURVE.P || y >= CURVE.P) {
       throw new TypeError('Point is not on elliptic curve');
     }
     const left = mod(y * y);
     const right = weistrass(x);
-    const valid = (left - right) % CURVE.P === 0n;
+    const valid = (left - right) % CURVE.P === BigInt(0);
     if (!valid) throw new TypeError('Point is not on elliptic curve');
   }
 
@@ -557,12 +557,12 @@ function mod(a: bigint, b: bigint = CURVE.P): bigint {
 }
 
 function powMod(x: bigint, power: bigint, order: bigint) {
-  let res = 1n;
+  let res = BigInt(1);
   while (power > 0) {
-    if (power & 1n) {
+    if (power & BigInt(1)) {
       res = mod(res * x, order);
     }
-    power >>= 1n;
+    power >>= BigInt(1);
     x = mod(x * x, order);
   }
   return res;
@@ -571,8 +571,8 @@ function powMod(x: bigint, power: bigint, order: bigint) {
 // Eucledian GCD
 // https://brilliant.org/wiki/extended-euclidean-algorithm/
 function egcd(a: bigint, b: bigint) {
-  let [x, y, u, v] = [0n, 1n, 1n, 0n];
-  while (a !== 0n) {
+  let [x, y, u, v] = [BigInt(0), BigInt(1), BigInt(1), BigInt(0)];
+  while (a !== BigInt(0)) {
     let q = b / a;
     let r = b % a;
     let m = x - u * q;
@@ -586,11 +586,11 @@ function egcd(a: bigint, b: bigint) {
 }
 
 function invert(number: bigint, modulo: bigint = CURVE.P) {
-  if (number === 0n || modulo <= 0n) {
+  if (number === BigInt(0) || modulo <= BigInt(0)) {
     throw new Error('invert: expected positive integers');
   }
   const [gcd, x] = egcd(mod(number, modulo), modulo);
-  if (gcd !== 1n) {
+  if (gcd !== BigInt(1)) {
     throw new Error('invert: does not exist');
   }
   return mod(x, modulo);
@@ -599,15 +599,15 @@ function invert(number: bigint, modulo: bigint = CURVE.P) {
 function invertBatch(nums: bigint[], n: bigint = CURVE.P): bigint[] {
   const len = nums.length;
   const scratch = new Array(len);
-  let acc = 1n;
+  let acc = BigInt(1);
   for (let i = 0; i < len; i++) {
-    if (nums[i] === 0n) continue;
+    if (nums[i] === BigInt(0)) continue;
     scratch[i] = acc;
     acc = mod(acc * nums[i], n);
   }
   acc = invert(acc, n);
   for (let i = len - 1; i >= 0; i--) {
-    if (nums[i] === 0n) continue;
+    if (nums[i] === BigInt(0)) continue;
     let tmp = mod(acc * nums[i], n);
     nums[i] = mod(acc * scratch[i], n);
     acc = tmp;
@@ -620,9 +620,9 @@ function invertBatch(nums: bigint[], n: bigint = CURVE.P): bigint[] {
 // https://gist.github.com/paulmillr/eb670806793e84df628a7c434a873066
 function splitScalarEndo(k: bigint): [boolean, bigint, boolean, bigint] {
   const { n } = CURVE;
-  const a1 = 0x3086d221a7d46bcde86c90e49284eb15n;
-  const b1 = -0xe4437ed6010e88286f547fa90abfe4c3n;
-  const a2 = 0x114ca50f7a8e2f3f657c1108d9d44cfd8n;
+  const a1 = BigInt("0x3086d221a7d46bcde86c90e49284eb15");
+  const b1 = BigInt("-303414439467246543595250775667605759171");
+  const a2 = BigInt("0x114ca50f7a8e2f3f657c1108d9d44cfd8");
   const b2 = a1;
   const c1 = (b2 * k) / n;
   const c2 = (-b1 * k) / n;
@@ -699,7 +699,7 @@ function calcQRSFromK(k: bigint, msg: bigint, priv: bigint): QRS | undefined {
   const q = Point.BASE.multiply(k);
   const r = mod(q.x, max);
   const s = mod(invert(k, max) * (msg + r * priv), max);
-  if (r === 0n || s === 0n) return;
+  if (r === BigInt(0) || s === BigInt(0)) return;
   return [q, r, s];
 }
 
@@ -822,9 +822,9 @@ export async function sign(
   // instead of letting user specify random `k`.
   const [q, r, s] = await getQRSrfc6979(msgHash, priv);
 
-  let recovery = (q.x === r ? 0 : 2) | Number(q.y & 1n);
+  let recovery = (q.x === r ? 0 : 2) | Number(q.y & BigInt(1));
   let adjustedS = s;
-  const HIGH_NUMBER = CURVE.n >> 1n;
+  const HIGH_NUMBER = CURVE.n >> BigInt(1);
   if (s > HIGH_NUMBER && canonical) {
     adjustedS = CURVE.n - s;
     recovery ^= 1;
@@ -900,7 +900,7 @@ export const utils = {
   precompute(windowSize = 8, point = Point.BASE): Point {
     const cached = point === Point.BASE ? point : new Point(point.x, point.y);
     cached._setWindowSize(windowSize);
-    cached.multiply(3n);
+    cached.multiply(BigInt(3));
     return cached;
   },
 };
