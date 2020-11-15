@@ -1,7 +1,10 @@
 name = "cf-worker-2"
 type = "webpack"
-account_id = ""
+account_id = "def03fa18e0fd4ec8de6d4558528abca"
 workers_dev = true
 route = ""
 zone_id = ""
 webpack_config = "webpack.config.js"
+kv_namespaces = [
+  { binding = "PRIVATE_STORE", id = "8e02915174ba4906b11e91590b346257", preview_id = "8e02915174ba4906b11e91590b346257" }
+]

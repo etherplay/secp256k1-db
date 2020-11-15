@@ -1,5 +1,5 @@
-import { handleRequest } from './handler'
+import { handleRPC } from './handler'
 
 addEventListener('fetch', (event) => {
-  event.respondWith(handleRequest(event.request))
+  event.respondWith(handleRPC(event.request))
 })

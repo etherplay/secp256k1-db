@@ -855,46 +855,24 @@ export const utils = {
 
   randomPrivateKey: (bytesLength: number = 32): Uint8Array => {
     // @ts-ignore
-    if (typeof window == 'object' && 'crypto' in window) {
-      // @ts-ignore
-      return window.crypto.getRandomValues(new Uint8Array(bytesLength));
-      // @ts-ignore
-    } else if (typeof process === 'object' && 'node' in process.versions) {
-      // @ts-ignore
-      const { randomBytes } = require('crypto');
-      return new Uint8Array(randomBytes(bytesLength).buffer);
-    } else {
-      throw new Error("The environment doesn't have randomBytes function");
-    }
+    return crypto.getRandomValues(new Uint8Array(bytesLength));
   },
 
   hmacSha256: async (key: Uint8Array, ...messages: Uint8Array[]): Promise<Uint8Array> => {
     // @ts-ignore
-    if (typeof window == 'object' && 'crypto' in window) {
-      // @ts-ignore
-      const ckey = await window.crypto.subtle.importKey(
+    const ckey = await crypto.subtle.importKey(
         'raw',
         key,
         { name: 'HMAC', hash: { name: 'SHA-256' } },
         false,
         ['sign', 'verify']
-      );
-      const message = concatBytes(...messages);
+    );
+    const message = concatBytes(...messages);
+    // @ts-ignore
+    const buffer = await crypto.subtle.sign('HMAC', ckey, message);
+    return new Uint8Array(buffer);
       // @ts-ignore
-      const buffer = await window.crypto.subtle.sign('HMAC', ckey, message);
-      return new Uint8Array(buffer);
-      // @ts-ignore
-    } else if (typeof process === 'object' && 'node' in process.versions) {
-      // @ts-ignore
-      const { createHmac, randomBytes } = require('crypto');
-      const hash = createHmac('sha256', key);
-      for (let message of messages) {
-        hash.update(message);
-      }
-      return Uint8Array.from(hash.digest());
-    } else {
-      throw new Error("The environment doesn't have hmac-sha256 function");
-    }
+    
   },
 
   precompute(windowSize = 8, point = Point.BASE): Point {
