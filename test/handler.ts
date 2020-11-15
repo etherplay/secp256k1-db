@@ -4,16 +4,18 @@ import {Wallet} from '@ethersproject/wallet';
 const {joinSignature} = require('@ethersproject/bytes')
 import * as crypto from 'crypto';
 
-const db = 'planet-wars';
+const namespace = 'planet-wars';
 
 describe('handler returns response with request method', () => {
-  it("signedDB_putString", async () => {
+  it("wallet_putString", async () => {
     const wallet = Wallet.createRandom();
     const address = wallet.address;
     const dataAsString = JSON.stringify({hello: "world"});
+
+    const timestamp = Math.floor(Date.now()).toString();
     
     const hash = crypto.createHash('sha256');
-    hash.update("db:" + db + ":" + dataAsString);
+    hash.update("put:" + namespace + ":" + timestamp + ":" + dataAsString);
     const dataHash = hash.digest();
 
     const signature = joinSignature(await wallet._signingKey().signDigest(new Uint8Array(dataHash)));
@@ -22,8 +24,8 @@ describe('handler returns response with request method', () => {
     const request = {
       jsonrpc: "2.0",
       id: 1,
-      method: "signedDB_putString",
-      params: [db, wallet.address, signature, dataAsString]
+      method: "wallet_putString",
+      params: [wallet.address, namespace, timestamp, dataAsString, signature]
     };
 
     console.log("REQUEST", JSON.stringify(request));
@@ -37,8 +39,8 @@ describe('handler returns response with request method', () => {
     const readRequest = {
       jsonrpc: "2.0",
       id: 2,
-      method: "signedDB_getString",
-      params: [db, wallet.address]
+      method: "wallet_getString",
+      params: [wallet.address, namespace]
     }
     const readResult = await handleRPC(new Request('/', { method: "POST",  body: JSON.stringify(readRequest)}));
     const readJson = await readResult.json();
