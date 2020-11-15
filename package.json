@@ -3,14 +3,6 @@
   "version": "1.0.0",
   "description": "Cloudflare worker TypeScript template",
   "main": "index.js",
-  "scripts": {
-    "build": "webpack",
-    "dev": "cross-env NODE_ENV=development npm run build",
-    "format": "prettier --write '**/*.{ts,js,css,json,md}'",
-    "test:clean": "rimraf ./transpiled/src ./transpiled/test",
-    "test": "npm run test:clean && npm run transpile && mocha --require source-map-support/register --recursive transpiled/test",
-    "transpile": "tsc --project ./test"
-  },
   "author": "author",
   "license": "MIT OR Apache-2.0",
   "devDependencies": {
@@ -21,6 +13,7 @@
     "@types/mocha": "^7.0.2",
     "@types/node": "^14.14.7",
     "chai": "^4.2.0",
+    "cloudflare-worker-local": "^1.12.1",
     "cross-env": "^7.0.2",
     "mocha": "^8.0.1",
     "prettier": "^2.0.5",
@@ -34,5 +27,14 @@
   "dependencies": {
     "@ethersproject/transactions": "^5.0.6",
     "elliptic": "^6.5.3"
+  },
+  "scripts": {
+    "build": "webpack",
+    "build:dev": "cross-env NODE_ENV=development npm run build",
+    "format": "prettier --write '**/*.{ts,js,css,json,md}'",
+    "test:clean": "rimraf ./transpiled/src ./transpiled/test",
+    "test": "npm run test:clean && npm run transpile && mocha --require source-map-support/register --recursive transpiled/test",
+    "transpile": "tsc --project ./test",
+    "dev": "npm run build && cross-env KV_NAMESPACES=PRIVATE_STORE cloudflare-worker-local dist/worker.production.js localhost:2000 4000"
   }
 }

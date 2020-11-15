@@ -22,9 +22,11 @@ const corsHeaders = {
 }
 
 
-function setData(key: string, data: string, counter: BigInt) {
-  const dataToStore = JSON.stringify({data, counter: counter.toString()}); 
-  return PRIVATE_STORE.put(key, dataToStore);
+async function setData(key: string, data: string, counter: BigInt): Promise<{data: string; counter: string}> {
+  const obj = {data, counter: counter.toString()};
+  const dataToStore = JSON.stringify(obj); 
+  await PRIVATE_STORE.put(key, dataToStore);
+  return obj;
 }
 async function getData(key: string): Promise<{data: string; counter: string;} | null> {
   const str = await PRIVATE_STORE.get(key);
@@ -223,7 +225,7 @@ async function handlePutString(jsonRequest: JSONRequest) {
     if (request.counter > BigInt(now)) {
       return wrapResponse(jsonRequest, null, `cannot use counter > timestamp in ms`);  
     }
-    await setData(request.address.toLowerCase(), request.data, request.counter);
+    currentData = await setData(request.address.toLowerCase(), request.data, request.counter);
   } catch (e) {
     console.error(e);
     return wrapResponse(jsonRequest, null, e);
