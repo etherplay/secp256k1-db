@@ -1,10 +1,10 @@
 {
-  "name": "pname",
-  "version": "1.0.0",
-  "description": "Cloudflare worker TypeScript template",
-  "main": "index.js",
-  "author": "author",
-  "license": "MIT OR Apache-2.0",
+  "name": "secp256k1-db",
+  "version": "0.1.0",
+  "description": "DB using ECDSA secp256k1 signatures for authenticated writes",
+  "bin": "cli.js",
+  "author": "wighawag",
+  "license": "MIT",
   "devDependencies": {
     "@cloudflare/workers-types": "^2.0.0",
     "@ethersproject/bytes": "^5.0.5",
@@ -29,9 +29,10 @@
     "elliptic": "^6.5.3"
   },
   "scripts": {
+    "deploy": "cross-env NAMESPACE=planet-wars wrangler publish",
     "build": "webpack",
     "build:dev": "cross-env NODE_ENV=development npm run build",
-    "format": "prettier --write '**/*.{ts,js,css,json,md}'",
+    "format": "prettier --write **/*.{ts,js,css,json,md}",
     "test:clean": "rimraf ./transpiled/src ./transpiled/test",
     "test": "npm run test:clean && npm run transpile && mocha --require source-map-support/register --recursive transpiled/test",
     "transpile": "tsc --project ./test",

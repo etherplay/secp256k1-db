@@ -1,7 +1,7 @@
-const path = require('path')
-const webpack = require('webpack')
+const path = require('path');
+const webpack = require('webpack');
 
-const mode = process.env.NODE_ENV || 'production'
+const mode = process.env.NODE_ENV || 'production';
 
 module.exports = {
   output: {
@@ -10,8 +10,7 @@ module.exports = {
   },
   mode,
   resolve: {
-    extensions: ['.ts', '.tsx', '.js'],
-    plugins: [],
+    extensions: ['.ts', '.tsx', '.js']
   },
   module: {
     rules: [
@@ -24,4 +23,5 @@ module.exports = {
       },
     ],
   },
-}
+  plugins: [new webpack.EnvironmentPlugin({NAMESPACE: ''})],
+};

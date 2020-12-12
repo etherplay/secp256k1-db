@@ -1,9 +1,8 @@
-import {recoverAddress} from '@ethersproject/transactions';
-
+import { recoverAddress } from '@ethersproject/transactions';
 
 declare const PRIVATE_STORE: any;
 declare const global: any;
-if (typeof PRIVATE_STORE === "undefined") {
+if (typeof PRIVATE_STORE === 'undefined') {
   global.PRIVATE_STORE_DATA = {};
   global.PRIVATE_STORE = {
     put(key: string, value: string) {
@@ -11,46 +10,54 @@ if (typeof PRIVATE_STORE === "undefined") {
     },
     get(key: string): string {
       return global.PRIVATE_STORE_DATA[key];
-    }
-  }
+    },
+  };
 }
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET,HEAD,POST,OPTIONS",
-  "Access-Control-Max-Age": "86400",
-}
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET,HEAD,POST,OPTIONS',
+  'Access-Control-Max-Age': '86400',
+};
 
+const NAMESPACE = process.env.NAMESPACE;
 
-async function setData(key: string, data: string, counter: BigInt): Promise<{data: string; counter: string}> {
-  const obj = {data, counter: counter.toString()};
-  const dataToStore = JSON.stringify(obj); 
+async function setData(
+  namespace: string,
+  key: string,
+  data: string,
+  counter: BigInt
+): Promise<{ data: string; counter: string }> {
+  key = ((namespace && namespace !== '') ? namespace + "_": "") + key;
+  const obj = { data, counter: counter.toString() };
+  const dataToStore = JSON.stringify(obj);
   await PRIVATE_STORE.put(key, dataToStore);
   return obj;
 }
-async function getData(key: string): Promise<{data: string; counter: string;}> {
+async function getData(
+  namespace: string,
+  key: string
+): Promise<{ data: string; counter: string }> {
+  key = ((namespace && namespace !== '') ? namespace + "_": "") + key;
   const str = await PRIVATE_STORE.get(key);
   if (!str) {
     return {
-      data: "",
-      counter: "0"
+      data: '',
+      counter: '0',
     };
   }
   return JSON.parse(str);
 }
 
-const namespace = 'planet-wars';
-
-type JSONRequest = {method: string; params: any[]; id:number;};
+type JSONRequest = { method: string; params: any[]; id: number };
 
 export async function handleRPC(request: Request): Promise<Response> {
-  
   if (request.method === 'POST') {
     let jsonRequest;
     try {
       jsonRequest = await request.json();
     } catch (e) {
-      return new Response(e, {status: 400});
+      return new Response(e, { status: 400 });
     }
     const method = jsonRequest.method;
     switch (method) {
@@ -59,7 +66,12 @@ export async function handleRPC(request: Request): Promise<Response> {
       case 'wallet_putString':
         return handlePutString(jsonRequest);
       default:
-        return wrapResponse(jsonRequest, null, `"${method}" not supported`, "all");
+        return wrapResponse(
+          jsonRequest,
+          null,
+          `"${method}" not supported`,
+          'all'
+        );
     }
   } else {
     return new Response('please use jsonrpc POST request');
@@ -69,7 +81,7 @@ export async function handleRPC(request: Request): Promise<Response> {
 type ParsedRequest = {
   namespace: string;
   address: string;
-}
+};
 
 type ParsedReadRequest = ParsedRequest;
 
@@ -77,11 +89,21 @@ type ParsedWriteRequest = ParsedRequest & {
   signature: string;
   data: string;
   counter: BigInt;
-}
+};
 
-function parseReadRequest(jsonRequest: JSONRequest, numParams?: number): ParsedReadRequest {
-  if (numParams && (!jsonRequest.params || jsonRequest.params.length !== numParams)) {
-    throw new Error(`invalid number of parameters, expected ${numParams}, receiped ${jsonRequest.params ? jsonRequest.params.length: 'none'}`);
+function parseReadRequest(
+  jsonRequest: JSONRequest,
+  numParams?: number
+): ParsedReadRequest {
+  if (
+    numParams &&
+    (!jsonRequest.params || jsonRequest.params.length !== numParams)
+  ) {
+    throw new Error(
+      `invalid number of parameters, expected ${numParams}, receiped ${
+        jsonRequest.params ? jsonRequest.params.length : 'none'
+      }`
+    );
   }
   const address = jsonRequest.params[0];
   if (typeof address !== 'string') {
@@ -101,14 +123,18 @@ function parseReadRequest(jsonRequest: JSONRequest, numParams?: number): ParsedR
     throw new Error('invalid namespace length');
   }
 
-  return {address, namespace};
+  return { address, namespace };
 }
 
 function parseWriteRequest(jsonRequest: JSONRequest): ParsedWriteRequest {
   if (!jsonRequest.params || jsonRequest.params.length !== 5) {
-    throw new Error(`invalid number of parameters, expected 5, receiped ${jsonRequest.params ? jsonRequest.params.length: 'none'}`);
+    throw new Error(
+      `invalid number of parameters, expected 5, receiped ${
+        jsonRequest.params ? jsonRequest.params.length : 'none'
+      }`
+    );
   }
-  const {namespace, address} = parseReadRequest(jsonRequest);
+  const { namespace, address } = parseReadRequest(jsonRequest);
 
   const counterMs = jsonRequest.params[2];
   if (typeof counterMs !== 'string') {
@@ -131,17 +157,22 @@ function parseWriteRequest(jsonRequest: JSONRequest): ParsedWriteRequest {
   if (signature.length !== 132) {
     throw new Error('invalid signature length');
   }
-  return {namespace, address, signature, data, counter}
+  return { namespace, address, signature, data, counter };
 }
 
-type Usage = "wallet_putString" | "wallet_getString" | "all";
+type Usage = 'wallet_putString' | 'wallet_getString' | 'all';
 
-function wrapRequest(jsonRequest: JSONRequest, data: any, error?: any, usage?: Usage) {
+function wrapRequest(
+  jsonRequest: JSONRequest,
+  data: any,
+  error?: any,
+  usage?: Usage
+) {
   if (usage && error) {
-    if (usage === "wallet_getString" || usage === "all") {
-      error = `${error}\n{"method":"wallet_getString", "params":["<address>","<namespace>"]`;  
+    if (usage === 'wallet_getString' || usage === 'all') {
+      error = `${error}\n{"method":"wallet_getString", "params":["<address>","<namespace>"]`;
     }
-    if (usage === "wallet_putString" || usage === "all") {
+    if (usage === 'wallet_putString' || usage === 'all') {
       error = `${error}\n{"method":"wallet_putString", "params":["<address>","<namespace>","<counter>","<data>","<signature>"]}`;
     }
   }
@@ -157,18 +188,22 @@ async function handleGetString(jsonRequest: JSONRequest) {
   let request: ParsedReadRequest;
   try {
     request = parseReadRequest(jsonRequest, 2);
-  } catch(e) {
+  } catch (e) {
     console.error(e);
-    return wrapResponse(jsonRequest, null, e, "wallet_getString");
+    return wrapResponse(jsonRequest, null, e, 'wallet_getString');
   }
 
-  if (request.namespace !== namespace) {
-    return wrapResponse(jsonRequest, null, `namespace "${request.namespace}" not supported`);
+  if (NAMESPACE && NAMESPACE !== '' && request.namespace !== NAMESPACE) {
+    return wrapResponse(
+      jsonRequest,
+      null,
+      `namespace "${request.namespace}" not supported`
+    );
   }
-  
+
   let data;
   try {
-    data = await getData(request.address.toLowerCase());
+    data = await getData(request.namespace, request.address.toLowerCase());
   } catch (e) {
     console.error(e);
     return wrapResponse(jsonRequest, null, e);
@@ -176,18 +211,25 @@ async function handleGetString(jsonRequest: JSONRequest) {
   return wrapResponse(jsonRequest, data);
 }
 
-function wrapResponse(jsonRequest: JSONRequest, data: any, error?: any, usage?: Usage): Response {
+function wrapResponse(
+  jsonRequest: JSONRequest,
+  data: any,
+  error?: any,
+  usage?: Usage
+): Response {
   return new Response(wrapRequest(jsonRequest, data, error, usage), {
     headers: {
-      "content-type": "application/json;charset=UTF-8",
-      ...corsHeaders 
-    }
+      'content-type': 'application/json;charset=UTF-8',
+      ...corsHeaders,
+    },
   });
 }
 
-function toHex(ab: ArrayBuffer) : string {
+function toHex(ab: ArrayBuffer): string {
   const hashArray = Array.from(new Uint8Array(ab));
-  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join(''); // convert bytes to hex string
+  const hashHex = hashArray
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join(''); // convert bytes to hex string
   return hashHex;
 }
 
@@ -195,66 +237,92 @@ async function handlePutString(jsonRequest: JSONRequest) {
   let request: ParsedWriteRequest;
   try {
     request = parseWriteRequest(jsonRequest);
-  } catch(e) {
-    return wrapResponse(jsonRequest, null, e, "wallet_putString");
+  } catch (e) {
+    return wrapResponse(jsonRequest, null, e, 'wallet_putString');
   }
 
-  if (request.namespace !== namespace) {
-    return wrapResponse(jsonRequest, null, `namespace "${request.namespace}" not supported`);
+  if (NAMESPACE && NAMESPACE !== '' && request.namespace !== NAMESPACE) {
+    return wrapResponse(
+      jsonRequest,
+      null,
+      `namespace "${request.namespace}" not supported`
+    );
   }
-  
+
   let messageHash;
   try {
-    messageHash = await hash256("put:" + request.namespace + ":" + request.counter + ":" + request.data);
-  } catch(e) {
-    console.error(e);
-    return wrapResponse(jsonRequest, null, e);
-  }
-
-  const authorized = await isAuthorized(request.address, messageHash, request.signature);
-
-  if (!authorized) {
-    return wrapResponse(jsonRequest, null, 'invalid signature');
-  }
-
-  
-  let currentData;
-  try {
-    currentData = await getData(request.address.toLowerCase());
-    if (request.counter <= BigInt(currentData.counter)) {
-      return wrapResponse(jsonRequest, {success: false, currentData}, `cannot override with older/same counter`);  
-    }
-    const now = Date.now();
-    if (request.counter > BigInt(now)) {
-      return wrapResponse(jsonRequest, null, `cannot use counter > timestamp in ms`);  
-    }
-    currentData = await setData(request.address.toLowerCase(), request.data, request.counter);
+    messageHash = await hash256(
+      'put:' + request.namespace + ':' + request.counter + ':' + request.data
+    );
   } catch (e) {
     console.error(e);
     return wrapResponse(jsonRequest, null, e);
   }
 
-  return wrapResponse(jsonRequest, {success: true, currentData});
+  const authorized = await isAuthorized(
+    request.address,
+    messageHash,
+    request.signature
+  );
+
+  if (!authorized) {
+    return wrapResponse(jsonRequest, null, 'invalid signature');
+  }
+
+  let currentData;
+  try {
+    currentData = await getData(request.namespace, request.address.toLowerCase());
+    if (request.counter <= BigInt(currentData.counter)) {
+      return wrapResponse(
+        jsonRequest,
+        { success: false, currentData },
+        `cannot override with older/same counter`
+      );
+    }
+    const now = Math.floor(Date.now());
+    if (request.counter > BigInt(now)) {
+      return wrapResponse(
+        jsonRequest,
+        null,
+        `cannot use counter (${request.counter}) > timestamp (${now}) in ms`
+      );
+    }
+    currentData = await setData(
+      request.namespace,
+      request.address.toLowerCase(),
+      request.data,
+      request.counter
+    );
+  } catch (e) {
+    console.error(e);
+    return wrapResponse(jsonRequest, null, e);
+  }
+
+  return wrapResponse(jsonRequest, { success: true, currentData });
 }
 
 async function hash256(dataAsString: string) {
-  if (typeof crypto !== "undefined" && crypto.subtle) {
+  if (typeof crypto !== 'undefined' && crypto.subtle) {
     const encoder = new TextEncoder();
     const data = encoder.encode(dataAsString);
-    return "0x" + toHex(await crypto.subtle.digest("SHA-256", data));
+    return '0x' + toHex(await crypto.subtle.digest('SHA-256', data));
   } else {
-    const nodeCrypto = await import("crypto");
+    const nodeCrypto = await import('crypto');
     const hash = nodeCrypto.createHash('sha256');
     hash.update(dataAsString);
-    return "0x" + hash.digest().toString("hex");
+    return '0x' + hash.digest().toString('hex');
   }
 }
 
-async function isAuthorized(address: string, msgHash: string, signature: string): Promise<boolean> {
-  let addressFromSignature
+async function isAuthorized(
+  address: string,
+  msgHash: string,
+  signature: string
+): Promise<boolean> {
+  let addressFromSignature;
   try {
     addressFromSignature = recoverAddress(msgHash, signature);
-  } catch(e) {
+  } catch (e) {
     return false;
   }
   return address.toLowerCase() == addressFromSignature.toLowerCase();

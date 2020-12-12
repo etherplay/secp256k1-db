@@ -1,55 +1,36 @@
 const axios = require('axios');
-const {Wallet} = require('@ethersproject/wallet');
-const {joinSignature} = require('@ethersproject/bytes')
-const crypto = require('crypto');
+const { Wallet } = require('@ethersproject/wallet');
+const {putString, getString} = require('./lib');
 
+(async () => {
+  const wallet = Wallet.createRandom();
+  const request = await putString(wallet, {
+    data: JSON.stringify({hello: "world"}),
+    counter: Math.floor(Date.now() - 1000).toString()
+  });
 
-(async() => {
-    const db = 'planet-wars';
-    const wallet = Wallet.createRandom();
-    const dataAsString = JSON.stringify({hello: "world"});
-    
-    const hash = crypto.createHash('sha256');
-    hash.update("db:" + db + ":" + dataAsString);
-    const dataHash = hash.digest();
+  let response;
+  try {
+    response = await axios.post('https://cf-worker-2.rim.workers.dev', request);
+  } catch (e) {
+    console.error("WRITE ERROR", e.response.data);
+  }
+  if (response) {
+    console.log("RESULT", response.data);
+    response = undefined;
+  }
 
-    console.log({dataHash: dataHash.toString("hex")});
+  const readRequest = await getString(wallet.address);
 
-    const signature = joinSignature(await wallet._signingKey().signDigest(new Uint8Array(dataHash)));
-    const request = {
-      jsonrpc: "2.0",
-      id: 1,
-      method: "signedDB_putString",
-      params: [db, wallet.address, signature + "1", dataAsString]
-    };
-
-    const readRequest = {
-        jsonrpc: "2.0",
-        id: 1,
-        method: "signedDB_getString",
-        params: [db, wallet.address]
-      };
-
-    console.log(JSON.stringify(request));
-
-    let response
-    try {
-        response = await axios.post('https://cf-worker-2.rim.workers.dev', request)
-    } catch(e) {
-        console.error(e.response.data);
-    }
-    if (response) {
-        console.log(response.data);
-        response = undefined;
-    }
-    
-    try {
-        response = await axios.post('https://cf-worker-2.rim.workers.dev', readRequest)
-    } catch(e) {
-        console.error(e.response.data);
-    }
-    if (response) {
-        console.log(response.data);
-    }
-
-})()
+  try {
+    response = await axios.post(
+      'https://cf-worker-2.rim.workers.dev',
+      readRequest
+    );
+  } catch (e) {
+    console.error("READ ERROR", e.response.data);
+  }
+  if (response) {
+    console.log("READ", response.data);
+  }
+})();
