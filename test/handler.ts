@@ -1,7 +1,6 @@
 import { expect } from 'chai';
 import { handleRPC } from '../src/handler';
 import { Wallet } from '@ethersproject/wallet';
-const { joinSignature } = require('@ethersproject/bytes');
 import * as crypto from 'crypto';
 
 const NAMESPACE = 'planet-wars';
@@ -39,19 +38,10 @@ async function putString(
   const counter = params.counter || Math.floor(Date.now()).toString();
   const namespace = params.namespace || NAMESPACE;
 
-  const hash = crypto.createHash('sha256');
-  hash.update('put:' + namespace + ':' + counter + ':' + dataAsString);
-  const dataHash = hash.digest();
-
-  let signature = joinSignature(
-    await wallet._signingKey().signDigest(new Uint8Array(dataHash))
-  );
-  // console.log("DATA", {address, dataHash: dataHash.toString("hex"), signature, dataAsString});
+  let signature = await wallet.signMessage('put:' + namespace + ':' + counter + ':' + dataAsString);
 
   if (params.invalidSignature) {
-    signature = joinSignature(
-      await wallet._signingKey().signDigest(Wallet.createRandom().privateKey)
-    );
+    signature = await wallet.signMessage('putInvalid:' + namespace + ':' + counter + ':' + dataAsString);
   }
 
   const request = {
