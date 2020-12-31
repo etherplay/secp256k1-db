@@ -1,4 +1,4 @@
-import { recoverAddress } from '@ethersproject/transactions';
+import { verifyMessage } from '@ethersproject/wallet';
 
 declare const PRIVATE_STORE: any;
 declare const global: any;
@@ -17,6 +17,7 @@ if (typeof PRIVATE_STORE === 'undefined') {
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET,HEAD,POST,OPTIONS',
+  "Access-Control-Allow-Headers": "Content-Type",
   'Access-Control-Max-Age': '86400',
 };
 
@@ -51,8 +52,28 @@ async function getData(
 
 type JSONRequest = { method: string; params: any[]; id: number };
 
+function handleOptions(request: Request) {
+  if (request.headers.get("Origin") !== null &&
+      request.headers.get("Access-Control-Request-Method") !== null &&
+      request.headers.get("Access-Control-Request-Headers") !== null) {
+    // Handle CORS pre-flight request.
+    return new Response(null, {
+      headers: corsHeaders
+    })
+  } else {
+    // Handle standard OPTIONS request.
+    return new Response(null, {
+      headers: {
+        "Allow": "GET, HEAD, POST, OPTIONS",
+      }
+    })
+  }
+}
+
 export async function handleRPC(request: Request): Promise<Response> {
-  if (request.method === 'POST') {
+  if (request.method === 'OPTIONS') {
+    return handleOptions(request);
+  } else if (request.method === 'POST') {
     let jsonRequest;
     try {
       jsonRequest = await request.json();
@@ -249,19 +270,9 @@ async function handlePutString(jsonRequest: JSONRequest) {
     );
   }
 
-  let messageHash;
-  try {
-    messageHash = await hash256(
-      'put:' + request.namespace + ':' + request.counter + ':' + request.data
-    );
-  } catch (e) {
-    console.error(e);
-    return wrapResponse(jsonRequest, null, e);
-  }
-
   const authorized = await isAuthorized(
     request.address,
-    messageHash,
+    'put:' + request.namespace + ':' + request.counter + ':' + request.data,
     request.signature
   );
 
@@ -316,12 +327,12 @@ async function hash256(dataAsString: string) {
 
 async function isAuthorized(
   address: string,
-  msgHash: string,
+  message: string,
   signature: string
 ): Promise<boolean> {
   let addressFromSignature;
   try {
-    addressFromSignature = recoverAddress(msgHash, signature);
+    addressFromSignature = verifyMessage(message, signature);
   } catch (e) {
     return false;
   }

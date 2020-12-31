@@ -29,7 +29,7 @@
     "elliptic": "^6.5.3"
   },
   "scripts": {
-    "deploy": "cross-env NAMESPACE=planet-wars wrangler publish",
+    "deploy": "cross-env wrangler publish",
     "build": "webpack",
     "build:dev": "cross-env NODE_ENV=development npm run build",
     "format": "prettier --write **/*.{ts,js,css,json,md}",
