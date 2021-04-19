@@ -27,10 +27,11 @@ async function setData(
   namespace: string,
   key: string,
   data: string,
-  counter: BigInt
+  counter: BigInt,
+  signature: string
 ): Promise<{ data: string; counter: string }> {
   key = ((namespace && namespace !== '') ? namespace + "_": "") + key;
-  const obj = { data, counter: counter.toString() };
+  const obj = { data, counter: counter.toString(), signature};
   const dataToStore = JSON.stringify(obj);
   await PRIVATE_STORE.put(key, dataToStore);
   return obj;
@@ -38,13 +39,14 @@ async function setData(
 async function getData(
   namespace: string,
   key: string
-): Promise<{ data: string; counter: string }> {
+): Promise<{ data: string; counter: string; signature: string; }> {
   key = ((namespace && namespace !== '') ? namespace + "_": "") + key;
   const str = await PRIVATE_STORE.get(key);
   if (!str) {
     return {
       data: '',
       counter: '0',
+      signature: ''
     };
   }
   return JSON.parse(str);
@@ -222,14 +224,13 @@ async function handleGetString(jsonRequest: JSONRequest) {
     );
   }
 
-  let data;
   try {
-    data = await getData(request.namespace, request.address.toLowerCase());
+    const data = await getData(request.namespace, request.address.toLowerCase());
+    return wrapResponse(jsonRequest, data);
   } catch (e) {
     console.error(e);
     return wrapResponse(jsonRequest, null, e);
   }
-  return wrapResponse(jsonRequest, data);
 }
 
 function wrapResponse(
@@ -302,7 +303,8 @@ async function handlePutString(jsonRequest: JSONRequest) {
       request.namespace,
       request.address.toLowerCase(),
       request.data,
-      request.counter
+      request.counter,
+      request.signature
     );
   } catch (e) {
     console.error(e);

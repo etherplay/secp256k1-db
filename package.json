@@ -7,6 +7,7 @@
   "license": "MIT",
   "devDependencies": {
     "@cloudflare/workers-types": "^2.0.0",
+    "@cloudflare/wrangler": "^1.16.0",
     "@ethersproject/bytes": "^5.0.5",
     "@ethersproject/wallet": "^5.0.7",
     "@types/chai": "^4.2.11",
