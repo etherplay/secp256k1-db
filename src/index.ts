@@ -1,5 +1,12 @@
-import { handleRPC } from './handler';
+import { handleRPC } from "./handler";
 
-addEventListener('fetch', (event) => {
-  event.respondWith(handleRPC(event.request));
-});
+export interface Env {
+	PRIVATE_STORE: KVNamespace;
+
+}
+
+export default {
+	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+		return handleRPC(request, env)
+	},
+};

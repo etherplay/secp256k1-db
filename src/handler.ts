@@ -1,18 +1,5 @@
 import { verifyMessage } from '@ethersproject/wallet';
-
-declare const PRIVATE_STORE: any;
-declare const global: any;
-if (typeof PRIVATE_STORE === 'undefined') {
-  global.PRIVATE_STORE_DATA = {};
-  global.PRIVATE_STORE = {
-    put(key: string, value: string) {
-      global.PRIVATE_STORE_DATA[key] = value;
-    },
-    get(key: string): string {
-      return global.PRIVATE_STORE_DATA[key];
-    },
-  };
-}
+import { Env } from '.';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -21,35 +8,35 @@ const corsHeaders = {
   'Access-Control-Max-Age': '86400',
 };
 
-const NAMESPACE = process.env.NAMESPACE;
-
 async function setData(
-  namespace: string,
-  key: string,
-  data: string,
-  counter: BigInt,
-  signature: string
+	env: Env,
+	namespace: string,
+	key: string,
+	data: string,
+	counter: BigInt,
+	signature: string
 ): Promise<{ data: string; counter: string }> {
-  key = ((namespace && namespace !== '') ? namespace + "_": "") + key;
-  const obj = { data, counter: counter.toString(), signature};
-  const dataToStore = JSON.stringify(obj);
-  await PRIVATE_STORE.put(key, dataToStore);
-  return obj;
+	key = ((namespace && namespace !== '') ? namespace + "_": "") + key;
+	const obj = { data, counter: counter.toString(), signature};
+	const dataToStore = JSON.stringify(obj);
+	await env.PRIVATE_STORE.put(key, dataToStore);
+	return obj;
 }
 async function getData(
-  namespace: string,
-  key: string
+	env: Env,
+	namespace: string,
+	key: string
 ): Promise<{ data: string; counter: string; signature: string; }> {
-  key = ((namespace && namespace !== '') ? namespace + "_": "") + key;
-  const str = await PRIVATE_STORE.get(key);
-  if (!str) {
-    return {
-      data: '',
-      counter: '0',
-      signature: ''
-    };
-  }
-  return JSON.parse(str);
+	key = ((namespace && namespace !== '') ? namespace + "_": "") + key;
+	const str = await env.PRIVATE_STORE.get(key);
+	if (!str) {
+		return {
+			data: '',
+			counter: '0',
+			signature: ''
+		};
+	}
+	return JSON.parse(str);
 }
 
 type JSONRequest = { method: string; params: any[]; id: number };
@@ -72,22 +59,22 @@ function handleOptions(request: Request) {
   }
 }
 
-export async function handleRPC(request: Request): Promise<Response> {
+export async function handleRPC(request: Request, env: Env): Promise<Response> {
   if (request.method === 'OPTIONS') {
     return handleOptions(request);
   } else if (request.method === 'POST') {
-    let jsonRequest;
+    let jsonRequest: JSONRequest;
     try {
       jsonRequest = await request.json();
-    } catch (e) {
+    } catch (e: any) {
       return new Response(e, { status: 400 });
     }
     const method = jsonRequest.method;
     switch (method) {
       case 'wallet_getString':
-        return handleGetString(jsonRequest);
+        return handleGetString(jsonRequest, env);
       case 'wallet_putString':
-        return handlePutString(jsonRequest);
+        return handlePutString(jsonRequest, env);
       default:
         return wrapResponse(
           jsonRequest,
@@ -111,7 +98,7 @@ type ParsedReadRequest = ParsedRequest;
 type ParsedWriteRequest = ParsedRequest & {
   signature: string;
   data: string;
-  counter: BigInt;
+  counter: bigint;
 };
 
 function parseReadRequest(
@@ -207,7 +194,7 @@ function wrapRequest(
   });
 }
 
-async function handleGetString(jsonRequest: JSONRequest) {
+async function handleGetString(jsonRequest: JSONRequest, env: Env) {
   let request: ParsedReadRequest;
   try {
     request = parseReadRequest(jsonRequest, 2);
@@ -216,16 +203,8 @@ async function handleGetString(jsonRequest: JSONRequest) {
     return wrapResponse(jsonRequest, null, e, 'wallet_getString');
   }
 
-  if (NAMESPACE && NAMESPACE !== '' && request.namespace !== NAMESPACE) {
-    return wrapResponse(
-      jsonRequest,
-      null,
-      `namespace "${request.namespace}" not supported`
-    );
-  }
-
   try {
-    const data = await getData(request.namespace, request.address.toLowerCase());
+    const data = await getData(env, request.namespace, request.address.toLowerCase());
     return wrapResponse(jsonRequest, data);
   } catch (e) {
     console.error(e);
@@ -255,20 +234,12 @@ function toHex(ab: ArrayBuffer): string {
   return hashHex;
 }
 
-async function handlePutString(jsonRequest: JSONRequest) {
+async function handlePutString(jsonRequest: JSONRequest, env: Env) {
   let request: ParsedWriteRequest;
   try {
     request = parseWriteRequest(jsonRequest);
   } catch (e) {
     return wrapResponse(jsonRequest, null, e, 'wallet_putString');
-  }
-
-  if (NAMESPACE && NAMESPACE !== '' && request.namespace !== NAMESPACE) {
-    return wrapResponse(
-      jsonRequest,
-      null,
-      `namespace "${request.namespace}" not supported`
-    );
   }
 
   const authorized = await isAuthorized(
@@ -283,7 +254,7 @@ async function handlePutString(jsonRequest: JSONRequest) {
 
   let currentData;
   try {
-    currentData = await getData(request.namespace, request.address.toLowerCase());
+    currentData = await getData(env, request.namespace, request.address.toLowerCase());
     if (request.counter <= BigInt(currentData.counter)) {
       return wrapResponse(
         jsonRequest,
@@ -299,7 +270,7 @@ async function handlePutString(jsonRequest: JSONRequest) {
         `cannot use counter (${request.counter}) > timestamp (${now}) in ms`
       );
     }
-    currentData = await setData(
+    currentData = await setData(env,
       request.namespace,
       request.address.toLowerCase(),
       request.data,
@@ -314,18 +285,6 @@ async function handlePutString(jsonRequest: JSONRequest) {
   return wrapResponse(jsonRequest, { success: true, currentData });
 }
 
-async function hash256(dataAsString: string) {
-  if (typeof crypto !== 'undefined' && crypto.subtle) {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(dataAsString);
-    return '0x' + toHex(await crypto.subtle.digest('SHA-256', data));
-  } else {
-    const nodeCrypto = await import('crypto');
-    const hash = nodeCrypto.createHash('sha256');
-    hash.update(dataAsString);
-    return '0x' + hash.digest().toString('hex');
-  }
-}
 
 async function isAuthorized(
   address: string,

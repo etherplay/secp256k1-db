@@ -11,9 +11,9 @@ const {putString, getString} = require('./lib');
 
   let response;
   try {
-    response = await axios.post('https://cf-worker-2.rim.workers.dev', request);
+    response = await axios.post('http://127.0.0.1:8787', request);
   } catch (e) {
-    console.error("WRITE ERROR", e.response.data);
+    console.error("WRITE ERROR", e);
   }
   if (response) {
     console.log("RESULT", response.data);
@@ -24,7 +24,7 @@ const {putString, getString} = require('./lib');
 
   try {
     response = await axios.post(
-      'https://cf-worker-2.rim.workers.dev',
+      'http://127.0.0.1:8787',
       readRequest
     );
   } catch (e) {

@@ -1,42 +1,16 @@
 {
   "name": "secp256k1-db",
-  "version": "0.1.0",
-  "description": "DB using ECDSA secp256k1 signatures for authenticated writes",
-  "bin": "cli.js",
-  "author": "wighawag",
-  "license": "MIT",
-  "devDependencies": {
-    "@cloudflare/workers-types": "^2.0.0",
-    "@cloudflare/wrangler": "^1.16.0",
-    "@ethersproject/bytes": "^5.0.5",
-    "@ethersproject/wallet": "^5.0.7",
-    "@types/chai": "^4.2.11",
-    "@types/mocha": "^7.0.2",
-    "@types/node": "^14.14.7",
-    "chai": "^4.2.0",
-    "cloudflare-worker-local": "^1.12.1",
-    "cross-env": "^7.0.2",
-    "mocha": "^8.0.1",
-    "prettier": "^2.0.5",
-    "rimraf": "^3.0.2",
-    "service-worker-mock": "^2.0.5",
-    "ts-loader": "^7.0.5",
-    "typescript": "^3.9.5",
-    "webpack": "^4.43.0",
-    "webpack-cli": "^3.3.12"
-  },
-  "dependencies": {
-    "@ethersproject/transactions": "^5.0.6",
-    "elliptic": "^6.5.3"
-  },
+  "version": "0.0.0",
+  "private": true,
   "scripts": {
-    "deploy": "cross-env wrangler publish",
-    "build": "webpack",
-    "build:dev": "cross-env NODE_ENV=development npm run build",
-    "format": "prettier --write **/*.{ts,js,css,json,md}",
-    "test:clean": "rimraf ./transpiled/src ./transpiled/test",
-    "test": "npm run test:clean && npm run transpile && mocha --require source-map-support/register --recursive transpiled/test",
-    "transpile": "tsc --project ./test",
-    "dev": "npm run build && cross-env KV_NAMESPACES=PRIVATE_STORE cloudflare-worker-local dist/worker.production.js localhost:2000 4000"
+    "deploy": "wrangler deploy",
+    "start": "wrangler dev"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20230419.0",
+    "@ethersproject/wallet": "^5.0.0",
+    "axios": "^1.5.0",
+    "typescript": "^5.0.4",
+    "wrangler": "^3.0.0"
   }
 }

@@ -1,10 +1,9 @@
-name = "secp256k1-kv-db"
-type = "webpack"
-account_id = "def03fa18e0fd4ec8de6d4558528abca"
-workers_dev = true
-route = ""
-zone_id = ""
-webpack_config = "webpack.config.js"
-kv_namespaces = [
-  { binding = "PRIVATE_STORE", id = "198cd439a1e2498e98c4e70f0aaaa47f", preview_id = "6bc8d50f2a904a6087a6a08f43478844" }
-]
+name = "secp256k1-db"
+main = "src/index.ts"
+compatibility_date = "2023-09-14"
+
+[[kv_namespaces]]
+binding = "PRIVATE_STORE"
+id = "6a9b71a2c97d41fcb298a9ed9726f1f2"
+preview_id = "a6327ec076ba42f589d1791afa537cf5"
+
