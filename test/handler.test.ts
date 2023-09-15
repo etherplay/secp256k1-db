@@ -14,24 +14,6 @@ type Params = {
   invalidSignature?: boolean;
 };
 
-type WriteResponse = {
-  result: {
-    success: boolean;
-    currentData: {
-      data: string;
-      counter: string;
-    };
-  };
-};
-
-type ReadResponse = {
-  result: {
-    data: string;
-    counter: string;
-  };
-};
-
-
 async function createPUT(wallet: Wallet, params: Params) {
 	const dataAsString = params.data;
 
