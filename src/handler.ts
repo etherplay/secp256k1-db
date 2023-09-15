@@ -292,9 +292,11 @@ async function isAuthorized(
   signature: string
 ): Promise<boolean> {
   let addressFromSignature;
+	console.log(`isAuthorized?`);
   try {
     addressFromSignature = verifyMessage(message, signature);
   } catch (e) {
+		console.log(`invalid sig`);
     return false;
   }
   return address.toLowerCase() == addressFromSignature.toLowerCase();

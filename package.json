@@ -11,6 +11,7 @@
     "@ethersproject/wallet": "^5.0.0",
     "axios": "^1.5.0",
     "typescript": "^5.0.4",
+    "vitest": "^0.34.4",
     "wrangler": "^3.0.0"
   }
 }
