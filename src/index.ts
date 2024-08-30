@@ -2,7 +2,7 @@ import { handleRPC } from "./handler";
 
 export interface Env {
 	PRIVATE_STORE: KVNamespace;
-
+	TOKEN_ADMIN: string;
 }
 
 export default {

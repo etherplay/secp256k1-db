@@ -39,6 +39,17 @@ async function getData(
 	return JSON.parse(str);
 }
 
+async function deleteData(
+  env: Env,
+	namespace: string,
+	key: string
+): Promise<{ ok: boolean }> {
+	key = ((namespace && namespace !== '') ? namespace + "_": "") + key;
+	await env.PRIVATE_STORE.delete(key);
+	
+	return {ok: true};
+}
+
 type JSONRequest = { method: string; params: any[]; id: number };
 
 function handleOptions(request: Request) {
@@ -71,6 +82,14 @@ export async function handleRPC(request: Request, env: Env): Promise<Response> {
     }
     const method = jsonRequest.method;
     switch (method) {
+      case 'reset':
+        // TODO fix replayability, use counter
+        if (env.TOKEN_ADMIN && request.headers.get('TOKEN') === env.TOKEN_ADMIN) {
+          return handleReset(jsonRequest, env);
+        } else {
+          return wrapResponse(jsonRequest, null, 'not admin');
+        }
+        
       case 'wallet_getString':
         return handleGetString(jsonRequest, env);
       case 'wallet_putString':
@@ -170,7 +189,42 @@ function parseWriteRequest(jsonRequest: JSONRequest): ParsedWriteRequest {
   return { namespace, address, signature, data, counter };
 }
 
-type Usage = 'wallet_putString' | 'wallet_getString' | 'all';
+function parseResetRequest(
+  jsonRequest: JSONRequest,
+  numParams?: number
+): ParsedReadRequest {
+  if (
+    numParams &&
+    (!jsonRequest.params || jsonRequest.params.length !== numParams)
+  ) {
+    throw new Error(
+      `invalid number of parameters, expected ${numParams}, receiped ${
+        jsonRequest.params ? jsonRequest.params.length : 'none'
+      }`
+    );
+  }
+  const address = jsonRequest.params[0];
+  if (typeof address !== 'string') {
+    throw new Error(`invalid address: not a string`);
+  }
+  if (!address.startsWith('0x')) {
+    throw new Error(`invalid address: not 0x prefix`);
+  }
+  if (address.length !== 42) {
+    throw new Error('invalid address length');
+  }
+  const namespace = jsonRequest.params[1];
+  if (typeof namespace !== 'string') {
+    throw new Error(`invalid namespace: not a string`);
+  }
+  if (namespace.length === 0) {
+    throw new Error('invalid namespace length');
+  }
+
+  return { address, namespace };
+}
+
+type Usage = 'wallet_putString' | 'wallet_getString' | 'all' | 'reset';
 
 function wrapRequest(
   jsonRequest: JSONRequest,
@@ -211,6 +265,25 @@ async function handleGetString(jsonRequest: JSONRequest, env: Env) {
     return wrapResponse(jsonRequest, null, e);
   }
 }
+
+async function handleReset(jsonRequest: JSONRequest, env: Env) {
+  let request: ParsedReadRequest;
+  try {
+    request = parseResetRequest(jsonRequest, 2);
+  } catch (e) {
+    console.error(e);
+    return wrapResponse(jsonRequest, null, e, 'reset');
+  }
+
+  try {
+    const data = await deleteData(env, request.namespace, request.address.toLowerCase());
+    return wrapResponse(jsonRequest, data);
+  } catch (e) {
+    console.error(e);
+    return wrapResponse(jsonRequest, null, e);
+  }
+}
+
 
 function wrapResponse(
   jsonRequest: JSONRequest,
